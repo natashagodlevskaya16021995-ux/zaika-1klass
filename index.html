@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bunny Game - Math & Celebrate</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --hero-auto-speed: 1.3;   
+      --hero-input-speed: 2.3;  
+      --bg-image: url("images/bg.png");
+      --bg-overlay: rgba(0, 0, 0, 0.0);
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Roboto Condensed", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #000;
+      margin: 0;
+      padding: 0;
+    }
+
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background:
+        linear-gradient(var(--bg-overlay), var(--bg-overlay)),
+        var(--bg-image) center/cover no-repeat;
+      overflow: hidden;
+      color: #fff;
+      font-size: 3vh;
+    }
+
+    /* --- ИНТЕРФЕЙС (HUD) --- */
+    .hud {
+      position: absolute;
+      top: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 3vw;
+      padding: 1vh 2vw;
+      background: rgba(5, 5, 5, 0.45);
+      border-radius: 50px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.35);
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      width: auto;
+      max-width: 95%;
+      font-size: 3.5vh; 
+      line-height: 1;
+    }
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5vw;
+      white-space: nowrap;
+    }
+    .hud-label { opacity: 0.8; }
+    .hud-value {
+      font-weight: 700;
+      color: #ffe28a;
+    }
+    
+    #hero {
+      position: absolute;
+      width: 18vh;
+      height: 24vh;
+      background: url("images/pers.png") center/contain no-repeat;
+      transform-origin: center center;
+      transition: transform 0.15s ease-out;
+      z-index: 5;
+      filter: drop-shadow(0 1vh 2vh rgba(0,0,0,0.55));
+    }
+
+    .item, .candy {
+      position: absolute;
+      cursor: pointer;
+      transition: transform 0.25s ease, opacity 0.25s ease, filter 0.2s ease;
+      filter: drop-shadow(0 0.5vh 1vh rgba(0,0,0,0.6));
+      z-index: 10;
+      width: 14vh;
+      height: 14vh;
+    }
+    .item-type-1 { background: url("images/zadan1.png") center/contain no-repeat; }
+    .item-type-2 { background: url("images/zadan2.png") center/contain no-repeat; }
+    .item-type-3 { background: url("images/zadan3.png") center/contain no-repeat; }
+    .candy { background: url("images/konf.png") center/contain no-repeat; }
+
+    .nearby {
+      filter:
+        drop-shadow(0 0 0.5vh rgba(255, 240, 180, 0.9))
+        drop-shadow(0 0 1.5vh rgba(255, 220, 140, 0.8));
+      transform: translateZ(0);
+    }
+
+    .gold-pop {
+      position: absolute;
+      width: 10vh;
+      height: 10vh;
+      pointer-events: none;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,215,128,0.1) 55%, transparent 70%);
+      opacity: 0;
+      transform: scale(0.4);
+      animation: pop 0.6s ease-out forwards;
+      mix-blend-mode: screen;
+      z-index: 40;
+    }
+    @keyframes pop {
+      0% { opacity: 0; transform: scale(0.2); }
+      20% { opacity: 1; transform: scale(1.1); }
+      60% { opacity: 0.85; transform: scale(0.9); }
+      100% { opacity: 0; transform: scale(1.3); }
+    }
+
+    .floating-score {
+      position: absolute;
+      color: #ffe28a;
+      font-size: 4vh; 
+      font-weight: 800;
+      text-shadow: 0 0 1vh rgba(0,0,0,0.9);
+      pointer-events: none;
+      animation: floatScore 1s ease-out forwards;
+      z-index: 40;
+    }
+    @keyframes floatScore {
+      0% { opacity: 0; transform: translateY(1vh) scale(0.8); }
+      20% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-5vh) scale(1.05); }
+    }
+
+    .error-mark {
+      position: absolute;
+      width: 6vh;
+      height: 6vh;
+      border-radius: 50%;
+      background: rgba(220, 20, 60, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 900;
+      font-size: 4vh; 
+      pointer-events: none;
+      box-shadow: 0 1vh 2vh rgba(0,0,0,0.6);
+      animation: bounceMark 0.8s ease-out forwards;
+      z-index: 35;
+    }
+    @keyframes bounceMark {
+      0% { opacity: 0; transform: translateY(-1vh) scale(0.4); }
+      40% { opacity: 1; transform: translateY(0) scale(1.1); }
+      70% { transform: translateY(-0.5vh) scale(0.95); }
+      100% { opacity: 0; transform: translateY(-1.5vh) scale(0.9); }
+    }
+
+    /* Модальное окно */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal-backdrop.active { display: flex; }
+    
+    .modal-window {
+      position: relative;
+      width: 80vw;   
+      height: auto;
+      max-height: 90vh;
+      padding: 5vh;
+      background: url("images/podl.png") no-repeat;
+      background-size: 100% 100%; 
+      border-radius: 3vh;
+      box-shadow: 0 2vh 8vh rgba(0,0,0,0.9);
+      color: #1e1b14;
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      overflow: hidden;
+      align-items: center;
+    }
+    .modal-header {
+      font-size: 5vh; 
+      font-weight: 700;
+      margin-bottom: 2vh;
+      text-align: center;
+      text-shadow: 0 0.2vh 0.4vh rgba(255,255,255,0.8);
+    }
+    .modal-question {
+      font-size: 5vh; 
+      margin-bottom: 3vh;
+      text-align: center;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+    
+    /* Анимация для картинки сюрприза */
+    .surprise-img {
+      width: 25vh;
+      height: auto;
+      margin-bottom: 2vh;
+      display: none;
+      filter: drop-shadow(0 0.5vh 1vh rgba(0,0,0,0.3));
+      animation: pulseSurprise 2s ease-in-out infinite;
+    }
+    @keyframes pulseSurprise {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    /* Стили для полей ввода */
+    .modal-inputs-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2vh;
+      width: 100%;
+      max-width: 800px;
+    }
+    .input-label {
+      font-size: 4vh;
+      font-weight: 700;
+      color: #3b2a08;
+    }
+    .custom-input {
+      border: 0.4vh solid rgba(120, 96, 60, 0.7);
+      border-radius: 2vh;
+      padding: 1.5vh 2vw;
+      font-size: 4vh;
+      font-family: "Roboto Condensed", sans-serif;
+      background: rgba(255,255,255,0.9);
+      outline: none;
+      transition: all 0.2s ease;
+      box-shadow: inset 0 0.5vh 1vh rgba(0,0,0,0.1);
+    }
+    .custom-input:focus {
+      border-color: #5c4727;
+      background: #fff;
+    }
+    .solution-input {
+      min-height: 8vh;
+      resize: vertical;
+    }
+    .answer-row {
+      display: flex;
+      align-items: center;
+      gap: 2vw;
+      margin-top: 1vh;
+      width: 100%;
+    }
+    .answer-input {
+      flex: 1; /* Занимает оставшееся место, чтобы влезла длинная подсказка */
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    /* Состояние верного ответа (Зеленый) */
+    .input-correct {
+      background-color: #e6f9e6 !important;
+      border-color: #28a745 !important;
+      color: #155724 !important;
+      box-shadow: 0 0 2vh rgba(40, 167, 69, 0.6) !important;
+    }
+    
+    /* Состояние ошибки */
+    .input-incorrect-anim {
+      animation: shake 0.4s ease-in-out;
+      border-color: #dc3545 !important;
+      background-color: #fce4e4 !important;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-1vw); }
+      40%, 80% { transform: translateX(1vw); }
+    }
+
+    /* ОВЕРЛЕИ */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 120;
+    }
+    .overlay.active { display: flex; }
+    
+    .overlay-content {
+      text-align: center;
+      padding: 5vh;
+      border-radius: 3vh;
+      background: radial-gradient(circle at top, rgba(255,255,255,0.06), rgba(0,0,0,0.9));
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 2vh 5vh rgba(0,0,0,0.9);
+      position: relative;
+      overflow: hidden;
+      width: 90%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .overlay-title {
+      font-size: 4vh; 
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 2vh;
+      color: #ffe28a;
+      text-shadow: 0 0 2vh rgba(0,0,0,0.9);
+    }
+    .overlay-sub {
+      font-size: 2.5vh; 
+      margin-bottom: 3vh;
+      opacity: 0.9;
+      color: #f8f8f8;
+      line-height: 1.5;
+    }
+    
+    .hero-img-overlay {
+      width: 15vh;
+      height: auto;
+      margin-bottom: 2vh;
+      filter: drop-shadow(0 0 1.5vh rgba(255, 215, 128, 0.6));
+      animation: floatHero 2s ease-in-out infinite;
+    }
+    @keyframes floatHero {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-1vh); }
+    }
+
+    .btn-primary {
+      border: none;
+      border-radius: 50px;
+      padding: 1.5vh 4vw;
+      font-size: 3vh; 
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: linear-gradient(135deg, #ffe28a, #ffcc66);
+      box-shadow: 0 1vh 2.5vh rgba(0,0,0,0.7);
+      color: #3b2a08;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      font-family: "Roboto Condensed", sans-serif;
+    }
+    .btn-primary:hover {
+      transform: translateY(-0.3vh);
+      box-shadow: 0 1.5vh 3.5vh rgba(0,0,0,0.85);
+    }
+
+    .confetti {
+      position: absolute;
+      width: 0.8vw;
+      height: 1.8vh;
+      border-radius: 2px;
+      opacity: 0;
+      pointer-events: none;
+      background: #fff;
+      animation: confetti 1.6s ease-out infinite;
+      z-index: 110;
+    }
+    @keyframes confetti {
+      0% { opacity: 0; transform: translateY(0) rotate(0deg); }
+      10% { opacity: 1; }
+      100% { opacity: 0; transform: translateY(40vh) rotate(720deg); }
+    }
+
+    .hint-controls {
+      position: absolute;
+      bottom: 2vh;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.8vh 2vw;
+      border-radius: 50px;
+      background: rgba(0,0,0,0.55);
+      color: #eee;
+      font-size: 2.5vh; 
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.9;
+      display: flex;
+      gap: 1vw;
+      align-items: center;
+      z-index: 40;
+      white-space: nowrap;
+    }
+    .hint-key {
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.4);
+      padding: 0.2vh 0.8vw;
+      font-size: 2.2vh; 
+      background: rgba(255,255,255,0.06);
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div class="hud">
+      <div class="hud-item">
+        <span class="hud-label">Баллы:</span>
+        <span id="score" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Ошибки:</span>
+        <span id="mistakes" class="hud-value">0 / 3</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">Выполнено:</span>
+        <span id="found" class="hud-value">0 / 10</span>
+      </div>
+    </div>
+
+    <div id="hero"></div>
+
+    <div id="taskModal" class="modal-backdrop">
+      <div class="modal-window">
+        <div id="modalHeader" class="modal-header">Задание</div>
+        
+        <img id="surpriseImg" src="images/otd.png" class="surprise-img" alt="Отдых">
+        
+        <div id="modalQuestion" class="modal-question"></div>
+        
+        <div id="mathInputs" class="modal-inputs-container">
+          <label class="input-label">Решение:</label>
+          <textarea id="solutionInput" class="custom-input solution-input" placeholder="Для заметок..."></textarea>
+          
+          <div class="answer-row">
+            <label class="input-label">Ответ:</label>
+            <input type="number" id="answerInput" class="custom-input answer-input" placeholder="Впиши только число" autocomplete="off">
+          </div>
+        </div>
+
+        <button id="btnCheckAnswer" class="btn-primary" style="margin-top: 3vh;">Проверить</button>
+      </div>
+    </div>
+
+    <div id="startOverlay" class="overlay active" style="display: flex;">
+      <div class="overlay-content">
+        <div class="overlay-title">Помоги зайчику собрать угощения!</div>
+        <img src="images/pers.png" class="hero-img-overlay" alt="Hero">
+        <div class="overlay-sub">
+          Двигай его с помощью стрелок на клавиатуре.<br><br> 
+          Когда зайчик приблизится к морковным лакомствам — они подсветятся. Кликай на них и решай задачи.<br><br> 
+          Каждая лейка даёт дополнительные баллы.
+        </div>
+        <button id="btnStartGame" class="btn-primary">Начать игру</button>
+      </div>
+    </div>
+
+    <div id="gameOverOverlay" class="overlay">
+      <div class="overlay-content">
+        <div class="overlay-title" id="overlayTitle">Слишком много ошибок.</div>
+        
+        <img src="images/pobeda.png" class="hero-img-overlay" id="winImage" style="display:none;" alt="Winner">
+        
+        <div class="overlay-sub" id="overlaySub">Попробуй ещё раз</div>
+        <button id="btnRestart" class="btn-primary">Играть снова</button>
+      </div>
+    </div>
+
+    <div class="hint-controls">
+      <span class="hint-key">↑ ↓ ← →</span>
+      <span>Двигай героя</span>
+    </div>
+  </div>
+
+  <script>
+    const SOUNDS_PATH = "sounds/";
+
+    const soundClick = new Audio(SOUNDS_PATH + "click.mp3");
+    const soundCorrect = new Audio(SOUNDS_PATH + "ok.mp3");
+    const soundWrong = new Audio(SOUNDS_PATH + "bad.mp3");
+    const soundWin = new Audio(SOUNDS_PATH + "win.mp3");
+    const soundLose = new Audio(SOUNDS_PATH + "lose.mp3");
+
+    function playSound(audio) {
+      if (!audio) return;
+      audio.currentTime = 0;
+      audio.play().catch(e => {
+        console.warn("Звук не воспроизвелся:", e);
+      });
+    }
+
+    const gameEl = document.getElementById('game');
+    const heroEl = document.getElementById('hero');
+    const scoreEl = document.getElementById('score');
+    const mistakesEl = document.getElementById('mistakes');
+    const foundEl = document.getElementById('found');
+
+    const taskModal = document.getElementById('taskModal');
+    const modalHeaderEl = document.getElementById('modalHeader');
+    const modalQuestionEl = document.getElementById('modalQuestion');
+    const surpriseImgEl = document.getElementById('surpriseImg');
+    const btnCheckAnswer = document.getElementById('btnCheckAnswer');
+
+    const startOverlay = document.getElementById('startOverlay');
+    const btnStartGame = document.getElementById('btnStartGame');
+    const gameOverOverlay = document.getElementById('gameOverOverlay');
+    const overlayTitle = document.getElementById('overlayTitle');
+    const overlaySub = document.getElementById('overlaySub');
+    const btnRestart = document.getElementById('btnRestart');
+    const winImage = document.getElementById('winImage');
+
+    let HERO_AUTO_SPEED = 1.3;
+    let HERO_INPUT_SPEED = 2.3;
+    const HERO_GROWTH_PER_CORRECT = 0.05;
+    const NUM_MAIN_ITEMS = 10;
+    const NUM_CANDIES = 3;
+    const MAX_MISTAKES = 3;
+
+    const SPAWN_BATCH_MIN = 2;
+    const SPAWN_BATCH_MAX = 3;
+    const SPAWN_INTERVAL = 1200;
+    const NEARBY_DISTANCE = 150; 
+
+    let hero = { x: 0, y: 0, vx: 0, vy: 0, scale: 1, autoMoving: false, flipped: false };
+    let keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+
+    let items = [];
+    let candies = [];
+    let pendingMain = NUM_MAIN_ITEMS;
+    let pendingCandies = NUM_CANDIES;
+    let spawnTimer = null;
+
+    let score = 0;
+    let mistakes = 0;
+    let foundCount = 0;
+    let isGameOver = false;
+    let isWin = false;
+    let currentItemId = null;
+    let currentTask = null; 
+    let gameStarted = false; 
+    let modalOpen = false;
+    let savedVelocity = { vx: 0, vy: 0, autoMoving: false };
+    
+    let availableMathTasks = [];
+    let uniqueItemsOpened = 0;
+
+    // --- БАЗА ЗАДАЧ ---
+    const MATH_TASKS = [
+      { type: 'math', question: "Весной на полянке расцвели 5 подснежников и 4 тюльпана. Для праздничного букета сорвали 3 цветка. Сколько цветов осталось расти на полянке?", answer: 6 },
+      { type: 'math', question: "Заяц посадил на грядке 6 морковок, а его брат — ещё 4. Когда урожай созрел, они вытащили 5 морковок на обед. Сколько морковок осталось в земле?", answer: 5 },
+      { type: 'math', question: "Для пасхального обеда зайчиха испекла 9 больших куличей, а маленьких — на 5 больше. Сколько маленьких куличей испекла зайчиха?", answer: 14 },
+      { type: 'math', question: "На весенней полянке играли 4 серых зайца и 5 белых. Потом 3 зайчика устали и убежали домой спать. Сколько зайцев осталось играть на полянке?", answer: 6 },
+      { type: 'math', question: "Заяц сделал 7 прыжков по весенней лужице, потом отдохнул и сделал ещё 4 прыжка по сухой тропинке. Сколько всего прыжков сделал зайка?", answer: 11 },
+      { type: 'math', question: "Заяц нашел в лесу 8 морковок. По дороге домой он сгрыз 2 морковки, но чуть позже нашёл в траве ещё 3. Сколько морковок он принес домой?", answer: 9 },
+      { type: 'math', question: "Пасхальный заяц нёс в корзинке 10 яиц. По дороге он подарил 4 яйца бельчонку, а потом встретил ежика, который дал ему ещё 3 яйца. Сколько яиц стало в корзинке у зайца?", answer: 9 },
+      { type: 'math', question: "На цветущей яблоне сидело 8 птичек, потом к ним прилетело ещё 4. Сколько теперь птичек сидит на яблоне?", answer: 12 },
+      { type: 'math', question: "В корзинке лежало 8 яблок, потом ёжик положил в неё ещё 3. Сколько теперь яблок в корзинке?", answer: 11 }
+    ];
+
+    const SURPRISE_TASK = { 
+      type: 'surprise', 
+      question: "Отдохни немного: попрыгай, как заяц.", 
+      answer: null 
+    };
+
+    function rand(min, max) { return Math.random() * (max - min) + min; }
+    function distance(ax, ay, bx, by) { const dx = ax - bx; const dy = ay - by; return Math.sqrt(dx * dx + dy * dy); }
+    function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) { return !(ax + aw < bx || ax > bx + bw || ay + ah < by || ay > by + bh); }
+
+    function anyOverlap(x, y, size) {
+      const all = [
+        ...items.map(i => ({ x: i.x, y: i.y, w: i.size, h: i.size })),
+        ...candies.map(c => ({ x: c.x, y: c.y, w: c.size, h: c.size }))
+      ];
+      for (const o of all) {
+        if (rectsOverlap(x, y, size, size, o.x, o.y, o.w, o.h)) return true;
+      }
+      return false;
+    }
+
+    function findNonOverlappingPosition(size) {
+      const w = gameEl.clientWidth;
+      const h = gameEl.clientHeight;
+      const MAX_TRIES = 200;
+      const MARGIN = 100; 
+      
+      for (let i = 0; i < MAX_TRIES; i++) {
+        const x = rand(MARGIN, w - size - MARGIN);
+        const y = rand(100, h - size - 100);
+        if (!anyOverlap(x, y, size)) {
+          const heroRect = heroEl.getBoundingClientRect();
+          const heroCx = hero.x + heroRect.width / 2;
+          const heroCy = hero.y + heroRect.height / 2;
+          const objCx = x + size / 2;
+          const objCy = y + size / 2;
+          if (distance(heroCx, heroCy, objCx, objCy) > NEARBY_DISTANCE) {
+            return { x, y };
+          }
+        }
+      }
+      return { x: rand(MARGIN, w - size - MARGIN), y: rand(100, h - size - 100) };
+    }
+
+    function initGame() {
+      startOverlay.classList.remove('active');
+      startOverlay.style.display = 'none';
+      hideOverlay();
+      gameStarted = true;
+
+      soundWin.pause(); soundWin.currentTime = 0;
+      soundLose.pause(); soundLose.currentTime = 0;
+
+      const cs = getComputedStyle(document.documentElement);
+      HERO_AUTO_SPEED = parseFloat(cs.getPropertyValue('--hero-auto-speed')) || 1.3;
+      HERO_INPUT_SPEED = parseFloat(cs.getPropertyValue('--hero-input-speed')) || 2.3;
+
+      score = 0; mistakes = 0; foundCount = 0;
+      isGameOver = false; isWin = false; currentItemId = null; modalOpen = false;
+      
+      // Перемешиваем математические задачи в начале игры
+      availableMathTasks = [...MATH_TASKS].sort(() => Math.random() - 0.5);
+      uniqueItemsOpened = 0;
+
+      hero.scale = 1;
+      const w = gameEl.clientWidth;
+      const h = gameEl.clientHeight;
+      hero.x = w / 2 - 50; 
+      hero.y = h / 2 - 75;
+      hero.vx = 0; hero.vy = 0;
+      hero.autoMoving = false; hero.flipped = false;
+      updateHeroVisual();
+
+      clearObjects();
+      pendingMain = NUM_MAIN_ITEMS; pendingCandies = NUM_CANDIES;
+
+      updateHUD();
+      hideModal();
+
+      if (spawnTimer) clearInterval(spawnTimer);
+      spawnTimer = setInterval(spawnBatch, SPAWN_INTERVAL);
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function clearObjects() {
+      [...document.querySelectorAll('.item, .candy, .gold-pop, .floating-score, .error-mark, .confetti')]
+        .forEach(el => el.remove());
+      items = []; candies = [];
+    }
+
+    function spawnBatch() {
+      if (!gameStarted) return;
+      if (pendingMain <= 0 && pendingCandies <= 0) {
+        clearInterval(spawnTimer); spawnTimer = null; return;
+      }
+      let toSpawn = Math.floor(rand(SPAWN_BATCH_MIN, SPAWN_BATCH_MAX + 1));
+      while (toSpawn > 0 && (pendingMain > 0 || pendingCandies > 0)) {
+        const choices = [];
+        if (pendingMain > 0) choices.push('main');
+        if (pendingCandies > 0) choices.push('candy');
+        if (choices.length === 0) break;
+        const type = choices[Math.floor(Math.random() * choices.length)];
+        if (type === 'main' && pendingMain > 0) { spawnMainItem(NUM_MAIN_ITEMS - pendingMain); pendingMain--; }
+        else if (type === 'candy' && pendingCandies > 0) { spawnCandy(NUM_CANDIES - pendingCandies); pendingCandies--; }
+        toSpawn--;
+      }
+    }
+
+    function spawnMainItem(index) {
+      const id = 'item-' + index;
+      const type = (index % 3) + 1;
+      const sizeVh = window.innerHeight * 0.14; 
+      const pos = findNonOverlappingPosition(sizeVh);
+      
+      const el = document.createElement('div');
+      el.classList.add('item', `item-type-${type}`);
+      el.style.left = pos.x + 'px';
+      el.style.top = pos.y + 'px';
+      el.dataset.id = id;
+
+      el.addEventListener('click', () => {
+        if (isGameOver || isWin || !gameStarted || modalOpen) return;
+        const obj = items.find(it => it.id === id);
+        if (!obj || obj.solved || !obj.active) return;
+        
+        playSound(soundClick);
+        currentItemId = id;
+        
+        // Динамическая выдача задач
+        if (!obj.taskAssigned) {
+          uniqueItemsOpened++;
+          if (uniqueItemsOpened === 5) {
+            // Ровно на 5-м клике по уникальному блинчику выдаем сюрприз
+            obj.taskData = SURPRISE_TASK;
+          } else {
+            // Выдаем очередную задачу
+            obj.taskData = availableMathTasks.pop();
+          }
+          obj.taskAssigned = true;
+        }
+
+        openTaskModalForItem(obj.taskData);
+      });
+
+      gameEl.appendChild(el);
+      items.push({ id, x: pos.x, y: pos.y, size: sizeVh, el, solved: false, active: false, taskAssigned: false, taskData: null });
+    }
+
+    function spawnCandy(index) {
+      const id = 'candy-' + index;
+      const sizeVh = window.innerHeight * 0.14; 
+      const pos = findNonOverlappingPosition(sizeVh);
+      
+      const el = document.createElement('div');
+      el.classList.add('candy');
+      el.style.left = pos.x + 'px';
+      el.style.top = pos.y + 'px';
+      el.dataset.id = id;
+
+      gameEl.appendChild(el);
+      candies.push({ id, x: pos.x, y: pos.y, size: sizeVh, el, eaten: false });
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = score;
+      mistakesEl.textContent = mistakes + ' / ' + MAX_MISTAKES;
+      foundEl.textContent = foundCount + ' / ' + NUM_MAIN_ITEMS;
+    }
+
+    function updateHeroVisual() {
+      heroEl.style.left = hero.x + 'px';
+      heroEl.style.top = hero.y + 'px';
+      heroEl.style.setProperty('--hero-scale', hero.scale);
+      const scaleX = hero.flipped ? -hero.scale : hero.scale;
+      heroEl.style.transform = `scale(${scaleX}, ${hero.scale})`;
+    }
+
+    function moveHeroByInput() {
+      if (modalOpen || !gameStarted) return;
+      let dx = 0, dy = 0;
+      if (keys.ArrowUp) dy -= 1;
+      if (keys.ArrowDown) dy += 1;
+      if (keys.ArrowLeft) dx -= 1;
+      if (keys.ArrowRight) dx += 1;
+      if (dx === 0 && dy === 0) return;
+
+      const len = Math.hypot(dx, dy) || 1;
+      dx = (dx / len) * HERO_INPUT_SPEED;
+      dy = (dy / len) * HERO_INPUT_SPEED;
+
+      const rect = heroEl.getBoundingClientRect();
+      const heroW = rect.width;
+      const heroH = rect.height;
+      const w = gameEl.clientWidth;
+      const h = gameEl.clientHeight;
+      const margin = 5;
+
+      hero.x += dx; hero.y += dy;
+
+      if (hero.x <= margin) hero.x = margin;
+      else if (hero.x + heroW >= w - margin) hero.x = w - margin - heroW;
+      
+      if (hero.y <= 60) hero.y = 60; 
+      else if (hero.y + heroH >= h - margin) hero.y = h - margin - heroH;
+    }
+
+    function handleInputDirectionForAuto() {
+      if (modalOpen || !gameStarted) return;
+      let dx = 0, dy = 0;
+      if (keys.ArrowUp) dy -= 1;
+      if (keys.ArrowDown) dy += 1;
+      if (keys.ArrowLeft) dx -= 1;
+      if (keys.ArrowRight) dx += 1;
+      if (dx !== 0 || dy !== 0) {
+        const len = Math.hypot(dx, dy) || 1;
+        hero.vx = (dx / len); hero.vy = (dy / len);
+      }
+    }
+
+    function moveHeroAuto() {
+      if (!hero.autoMoving || modalOpen || !gameStarted) return;
+      const w = gameEl.clientWidth;
+      const h = gameEl.clientHeight;
+      const rect = heroEl.getBoundingClientRect();
+      const heroW = rect.width;
+      const heroH = rect.height;
+      const margin = 5;
+
+      hero.x += hero.vx * HERO_AUTO_SPEED;
+      hero.y += hero.vy * HERO_AUTO_SPEED;
+
+      if (hero.x <= margin) { hero.x = margin; hero.vx *= -1; hero.flipped = !hero.flipped; }
+      else if (hero.x + heroW >= w - margin) { hero.x = w - margin - heroW; hero.vx *= -1; hero.flipped = !hero.flipped; }
+
+      if (hero.y <= 60) { hero.y = 60; hero.vy *= -1; }
+      else if (hero.y + heroH >= h - margin) { hero.y = h - margin - heroH; hero.vy *= -1; }
+    }
+
+    function updateNearbyAndAutoMoveTrigger() {
+      if (!gameStarted) return;
+      const rect = heroEl.getBoundingClientRect();
+      const heroCenterX = hero.x + rect.width / 2;
+      const heroCenterY = hero.y + rect.height / 2;
+      let anyNearby = false;
+
+      items.forEach(it => {
+        if (it.solved) { it.active = false; it.el.classList.remove('nearby'); return; }
+        const cx = it.x + it.size / 2; const cy = it.y + it.size / 2;
+        const d = distance(heroCenterX, heroCenterY, cx, cy);
+        const isNear = d <= NEARBY_DISTANCE;
+        it.active = isNear;
+        if (isNear) { it.el.classList.add('nearby'); anyNearby = true; } else { it.el.classList.remove('nearby'); }
+      });
+
+      candies.forEach(c => {
+        const cx = c.x + c.size / 2; const cy = c.y + c.size / 2;
+        const d = distance(heroCenterX, heroCenterY, cx, cy);
+        if (d <= NEARBY_DISTANCE && !c.eaten) { c.el.classList.add('nearby'); } else { c.el.classList.remove('nearby'); }
+      });
+
+      if (anyNearby && !hero.autoMoving) {
+        hero.autoMoving = true;
+        if (hero.vx === 0 && hero.vy === 0) {
+          hero.vx = Math.random() > 0.5 ? 1 : -1;
+          hero.vy = Math.random() > 0.5 ? 1 : -1;
+        }
+      }
+    }
+
+    function checkCollisions() {
+      if (!gameStarted) return;
+      const rect = heroEl.getBoundingClientRect();
+      const heroW = rect.width;
+      const heroH = rect.height;
+
+      candies.forEach(c => {
+        if (c.eaten) return;
+        if (rectsOverlap(hero.x, hero.y, heroW, heroH, c.x, c.y, c.size, c.size)) {
+          c.eaten = true;
+          c.el.style.opacity = '0'; c.el.style.transform = 'scale(0.3)';
+          setTimeout(() => c.el.remove(), 250);
+          playSound(soundClick);
+          score += 5;
+          showGoldPop(c.x + c.size/2, c.y + c.size/2);
+          showFloatingScore("+5", c.x + c.size/2, c.y);
+          updateHUD();
+        }
+      });
+    }
+
+    function showGoldPop(cx, cy) {
+      const pop = document.createElement('div');
+      pop.className = 'gold-pop';
+      pop.style.left = (cx - 40) + 'px';
+      pop.style.top = (cy - 40) + 'px';
+      gameEl.appendChild(pop);
+      setTimeout(() => pop.remove(), 650);
+    }
+
+    function showFloatingScore(text, x, y) {
+      const fs = document.createElement('div');
+      fs.className = 'floating-score';
+      fs.textContent = text;
+      fs.style.left = x + 'px';
+      fs.style.top = y + 'px';
+      gameEl.appendChild(fs);
+      setTimeout(() => fs.remove(), 1100);
+    }
+
+    function showErrorMark(x, y) {
+      const mark = document.createElement('div');
+      mark.className = 'error-mark';
+      mark.textContent = '✕';
+      mark.style.left = (x - 20) + 'px';
+      mark.style.top = (y - 20) + 'px';
+      gameEl.appendChild(mark);
+      setTimeout(() => mark.remove(), 900);
+    }
+
+    // --- ЛОГИКА ОТКРЫТИЯ МОДАЛЬНОГО ОКНА ---
+    function openTaskModalForItem(taskData) {
+      currentTask = taskData;
+      modalQuestionEl.textContent = currentTask.question;
+      
+      const mathInputs = document.getElementById('mathInputs');
+      const solutionInput = document.getElementById('solutionInput');
+      const answerInput = document.getElementById('answerInput');
+
+      // Сбрасываем значения и классы
+      solutionInput.value = '';
+      answerInput.value = '';
+      solutionInput.classList.remove('input-correct', 'input-incorrect-anim');
+      answerInput.classList.remove('input-correct', 'input-incorrect-anim');
+
+      if (currentTask.type === 'surprise') {
+        mathInputs.style.display = 'none';
+        modalHeaderEl.style.display = 'none'; // Прячем заголовок "Задание"
+        surpriseImgEl.style.display = 'block'; // Показываем картинку
+        btnCheckAnswer.textContent = 'Я попрыгал!';
+      } else {
+        mathInputs.style.display = 'flex';
+        modalHeaderEl.style.display = 'block';
+        modalHeaderEl.textContent = 'Задание';
+        surpriseImgEl.style.display = 'none';
+        btnCheckAnswer.textContent = 'Проверить';
+      }
+
+      savedVelocity = { vx: hero.vx, vy: hero.vy, autoMoving: hero.autoMoving };
+      hero.vx = 0; hero.vy = 0; hero.autoMoving = false;
+      modalOpen = true;
+      taskModal.classList.add('active');
+    }
+
+    function hideModal() {
+      taskModal.classList.remove('active');
+      modalOpen = false;
+      hero.vx = savedVelocity.vx; hero.vy = savedVelocity.vy; hero.autoMoving = savedVelocity.autoMoving;
+    }
+
+    // --- ПРОВЕРКА ОТВЕТОВ ---
+    btnCheckAnswer.addEventListener('click', () => {
+      if (!currentTask) return;
+      playSound(soundClick);
+
+      if (currentTask.type === 'surprise') {
+        playSound(soundCorrect);
+        setTimeout(() => { 
+          hideModal(); 
+          handleCorrectAnswer(); 
+        }, 300);
+      } else {
+        const answerInput = document.getElementById('answerInput');
+        const userAnswer = parseInt(answerInput.value.trim(), 10);
+        
+        if (userAnswer === currentTask.answer) {
+          // ВЕРНЫЙ ОТВЕТ (Зелёная подсветка ТОЛЬКО для ответа)
+          answerInput.classList.add('input-correct');
+          playSound(soundCorrect);
+          setTimeout(() => { 
+            hideModal(); 
+            handleCorrectAnswer(); 
+          }, 600);
+        } else {
+          // НЕВЕРНЫЙ ОТВЕТ
+          answerInput.classList.add('input-incorrect-anim');
+          playSound(soundWrong);
+          setTimeout(() => { 
+            answerInput.classList.remove('input-incorrect-anim');
+            hideModal(); 
+            handleWrongAnswer(); 
+          }, 600);
+        }
+      }
+    });
+
+    function handleCorrectAnswer() {
+      if (!currentItemId) return;
+      const item = items.find(it => it.id === currentItemId);
+      if (!item || item.solved) return;
+      item.solved = true;
+      item.el.style.transform = 'scale(0.1)'; item.el.style.opacity = '0';
+      const cx = item.x + item.size / 2; const cy = item.y + item.size / 2;
+      showGoldPop(cx, cy); showFloatingScore("+10", cx, cy - 10);
+      setTimeout(() => item.el.remove(), 250);
+      hero.scale += HERO_GROWTH_PER_CORRECT;
+      updateHeroVisual();
+      score += 10; foundCount++; updateHUD();
+      currentItemId = null;
+      checkWinCondition();
+    }
+
+    function handleWrongAnswer() {
+      mistakes++; updateHUD();
+      if (!currentItemId) return;
+      const item = items.find(it => it.id === currentItemId);
+      if (item) {
+        const cx = item.x + item.size / 2; const cy = item.y + item.size / 2;
+        showErrorMark(cx, cy);
+      }
+      currentItemId = null;
+      if (mistakes >= MAX_MISTAKES) triggerGameOver();
+    }
+
+    function triggerGameOver() {
+      isGameOver = true; playSound(soundLose);
+      overlayTitle.textContent = "Игра окончена"; overlaySub.textContent = "Попробуй ещё раз";
+      showOverlay(false);
+    }
+
+    function checkWinCondition() {
+      if (foundCount >= NUM_MAIN_ITEMS) {
+        isWin = true; playSound(soundWin);
+        overlayTitle.textContent = "Здорово!"; overlaySub.textContent = "Отличная работа!";
+        showOverlay(true);
+      }
+    }
+
+    function showOverlay(isVictory) {
+      gameOverOverlay.classList.add('active');
+      
+      const winImg = document.getElementById('winImage');
+      if(isVictory) {
+        winImg.style.display = 'block';
+        addConfetti(true);
+      } else {
+        winImg.style.display = 'none';
+      }
+    }
+
+    function hideOverlay() {
+      gameOverOverlay.classList.remove('active');
+      document.querySelectorAll('.confetti').forEach(el => el.remove());
+    }
+
+    function addConfetti(isVictory) {
+      if (!isVictory) return;
+      const count = 100;
+      const colors = ['#ff4d4d', '#4dff4d', '#4d4dff', '#ffff4d', '#ff4dff'];
+      
+      for (let i = 0; i < count; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = rand(3, 97) + '%';
+        c.style.top = rand(0, 30) + '%';
+        c.style.animationDelay = (Math.random() * 1.5) + 's';
+        c.style.animationDuration = (1.5 + Math.random() * 1) + 's';
+        c.style.background = colors[Math.floor(Math.random() * colors.length)];
+        gameEl.appendChild(c);
+      }
+    }
+
+    function gameLoop() {
+      if (isGameOver || isWin || !gameStarted) return;
+      moveHeroByInput();
+      handleInputDirectionForAuto();
+      moveHeroAuto();
+      updateHeroVisual();
+      updateNearbyAndAutoMoveTrigger();
+      checkCollisions();
+      requestAnimationFrame(gameLoop);
+    }
+
+    window.addEventListener('keydown', e => { if (e.key in keys) keys[e.key] = true; });
+    window.addEventListener('keyup', e => { if (e.key in keys) keys[e.key] = false; });
+
+    btnStartGame.addEventListener('click', () => { playSound(soundClick); initGame(); });
+    btnRestart.addEventListener('click', () => { playSound(soundClick); initGame(); });
+    window.addEventListener('load', () => {});
+    
+    window.addEventListener('resize', () => {
+       if(!gameStarted) return;
+       const w = gameEl.clientWidth;
+       const h = gameEl.clientHeight;
+       if (hero.x > w) hero.x = w - 100;
+       if (hero.y > h) hero.y = h - 100;
+       updateHeroVisual();
+    });
+  </script>
+</body>
+</html>
